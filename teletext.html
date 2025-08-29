@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Teletext (v. 0.1)</title>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        width: 100vw;
+      }
+      body {
+        min-height: 100vh;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      main {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        width: 100vw;
+        max-width: 100vw;
+        height: 100%;
+        box-sizing: border-box;
+      }
+      #controls {
+        margin-bottom: 12px; /* dimezzato */
+        display: flex;
+        align-items: center;
+        gap: 8px; /* dimezzato */
+        flex-wrap: wrap;
+        min-height: 24px; /* dimezzato */
+      }
+      #controls button,
+      #controls select,
+      #controls label,
+      #controls input[type="radio"] {
+        font-size: 0.7em; /* ridotto */
+        padding: 1px 3px; /* ridotto */
+        height: 16px;     /* dimezzato */
+        min-width: 16px;
+        line-height: 1.1;
+      }
+      #controls button {
+        border-radius: 3px;
+      }
+      #teletextFrame {
+        width: 100%;
+        max-width: 100vw;
+        display: block;
+        margin: 0 auto;
+        box-sizing: border-box;
+        flex-shrink: 1;
+        flex-grow: 1;
+        /* Calcola lo spazio disponibile tra i controlli sopra e sotto */
+        max-height: calc(100vh - 24px - 12px - 32px - 16px);
+        /* 24px controls, 12px margin, 32px page_sel, 16px margini variabili */
+        object-fit: contain;
+      }
+      #page_sel {
+        margin-top: 12px; /* dimezzato */
+        display: flex;
+        align-items: center;
+        gap: 4px; /* dimezzato */
+        justify-content: center;
+        flex-wrap: wrap;
+        min-height: 32px; /* dimezzato */
+      }
+      #page_sel button,
+      #page_sel select,
+      #page_sel label,
+      #page_sel input[type="number"] {
+        font-size: 0.7em; /* ridotto */
+        padding: 1px 3px; /* ridotto */
+        height: 16px;     /* dimezzato */
+        min-width: 16px;
+        line-height: 1.1;
+      }
+      #page_sel button {
+        border-radius: 3px;
+      }
+      header, main {
+        width: 100%;
+        box-sizing: border-box;
+      }
+    </style>
+    <script src="script.js" defer></script>
+    <script>
+      // Registrazione del service worker per PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js');
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <!-- Tutti i bottoni di controllo insieme all'inizio, inclusi i radio scroll -->
+      <div id="controls">
+        <!-- Scelta provider -->
+        <div id="prov_sel" class="btn-group">
+          <label for="b_provselect">Emittente:</label>
+          <select id="b_provselect">
+            <option>rai</option>
+          </select>
+        </div>
+
+        <!-- Barra di navigazione nei preferiti -->
+        <div id="fav_sel" class="btn-group">
+          <button id="b_favdown" title="Preferito precedente">⬆️</button>
+          <button id="b_favset" title="Imposta/Rimuovi preferito">⭐</button>
+          <button id="b_favup" title="Preferito successivo">⬇️</button>
+          <select id="b_favselect" title="Seleziona preferito">
+            <option>100</option>
+          </select>
+        </div>
+
+        <!-- Modalità scroll sulla stessa linea -->
+        <div class="radio-group" style="display: flex; align-items: center; gap: 2px;">
+          <input type="radio" id="pagescroll" name="scroll" value="page" checked />
+          <label for="pagescroll" style="margin-right:4px;">Scroll pagina</label>
+          <input type="radio" id="favscroll" name="scroll" value="fav" />
+          <label for="favscroll">Scroll preferiti</label>
+        </div>
+      </div>
+
+      <!-- Immagine della pagina di televideo -->
+      <img id="teletextFrame" src="pagina" alt="Pagina Televideo" />
+
+      <!-- Barra di navigazione nelle pagine (rimane in fondo) -->
+      <div id="page_sel" class="btn-group">
+        <button id="b_pagedown" title="Pagina precedente">⏮️</button>
+        <button id="b_subdown" title="Sottopagina precedente">◀️</button>
+        <button id="b_home" title="Home">🏠</button>
+        <button id="b_subup" title="Sottopagina successiva">▶️</button>
+        <button id="b_pageup" title="Pagina successiva">⏭️</button>
+        <input type="number" id="b_pagina" placeholder="Numero pagina" min="100" max="899" style="width:60px;" />
+      </div>
+    </main>
+  </body>
+</html>
