@@ -50,7 +50,6 @@
         <!-- Informazioni sulla riproduzione -->
         <div id="player-info" class="bg-indigo-100 text-indigo-800 p-4 rounded-xl mb-6 shadow-inner hidden">
             <h3 class="font-bold text-lg" id="current-station-name"></h3>
-            <p class="text-sm text-indigo-600" id="current-song-title"></p>
             <div class="flex flex-wrap gap-2 text-xs mt-2 text-indigo-700">
                 <span id="player-codec" class="bg-indigo-200 py-1 px-2 rounded-full"></span>
                 <span id="player-bitrate" class="bg-indigo-200 py-1 px-2 rounded-full"></span>
@@ -176,7 +175,7 @@
                 }
 
                 if (aValue < bValue) return -1;
-                if (aValue > bValue) return 1;
+                if (aValue > b) return 1;
                 return 0;
             });
         }
@@ -192,7 +191,7 @@
                 }
             });
         }
-
+        
         // Funzione per renderizzare la lista dei risultati di ricerca
         function renderSearchResults() {
             const resultsList = document.getElementById('results-list');
@@ -275,7 +274,7 @@
                         // Aggiorna le informazioni nel lettore
                         document.getElementById('player-info').classList.remove('hidden');
                         document.getElementById('current-station-name').textContent = station.name;
-                        document.getElementById('current-song-title').textContent = 'Nome brano non disponibile';
+                        
                         document.getElementById('player-codec').textContent = `Codec: ${station.codec || 'N/A'}`;
                         document.getElementById('player-bitrate').textContent = `Bitrate: ${station.bitrate ? station.bitrate + ' kbps' : 'N/A'}`;
                         document.getElementById('player-language').textContent = `Lingua: ${station.language || 'N/A'}`;
@@ -392,7 +391,7 @@
                         // Aggiorna le informazioni nel lettore
                         document.getElementById('player-info').classList.remove('hidden');
                         document.getElementById('current-station-name').textContent = station.name;
-                        document.getElementById('current-song-title').textContent = 'Nome brano non disponibile';
+                        
                         document.getElementById('player-codec').textContent = `Codec: ${station.codec || 'N/A'}`;
                         document.getElementById('player-bitrate').textContent = `Bitrate: ${station.bitrate ? station.bitrate + ' kbps' : 'N/A'}`;
                         document.getElementById('player-language').textContent = `Lingua: ${station.language || 'N/A'}`;
@@ -543,7 +542,6 @@
             currentPlayingStationId = null;
             document.getElementById('player-info').classList.add('hidden');
             document.getElementById('current-station-name').textContent = '';
-            document.getElementById('current-song-title').textContent = '';
             updateAllPlayButtonTexts();
         });
 
