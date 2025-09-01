@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio Browser</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .scrollable-list {
+            max-height: 400px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .station-item {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .station-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .play-button {
+            transition: background-color 0.2s;
+        }
+        .play-button:hover {
+            background-color: #fcd34d;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8 bg-gray-100 min-h-screen flex items-center justify-center">
+
+    <div class="container bg-white p-6 sm:p-10 rounded-3xl shadow-2xl w-full">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center text-indigo-700 mb-2">Ricerca Radio Online</h1>
+        <p class="text-center text-gray-500 mb-8">Cerca e salva le tue stazioni radio preferite.</p>
+
+        <!-- Lettore audio -->
+        <audio id="audio-player" class="w-full my-4 rounded-xl hidden" controls autoplay></audio>
+        
+        <!-- Informazioni sulla riproduzione -->
+        <div id="player-info" class="bg-indigo-100 text-indigo-800 p-4 rounded-xl mb-6 shadow-inner hidden">
+            <h3 class="font-bold text-lg" id="current-station-name"></h3>
+            <p class="text-sm text-indigo-600" id="current-song-title"></p>
+            <div class="flex flex-wrap gap-2 text-xs mt-2 text-indigo-700">
+                <span id="player-codec" class="bg-indigo-200 py-1 px-2 rounded-full"></span>
+                <span id="player-bitrate" class="bg-indigo-200 py-1 px-2 rounded-full"></span>
+                <span id="player-language" class="bg-indigo-200 py-1 px-2 rounded-full"></span>
+                <span id="player-tags" class="bg-indigo-200 py-1 px-2 rounded-full"></span>
+                <a id="player-homepage-link" href="#" target="_blank" class="bg-indigo-200 py-1 px-2 rounded-full hover:underline hidden">Homepage</a>
+            </div>
+        </div>
+
+        <!-- Area di ricerca -->
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <select id="search-type-select" class="p-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-indigo-500 transition-all shadow-sm">
+                <option value="name">Nome</option>
+                <option value="country">Paese</option>
+            </select>
+            <input type="text" id="search-input" placeholder="Inserisci il termine di ricerca..."
+                   class="flex-1 p-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-indigo-500 transition-all shadow-sm">
+            <button id="search-button"
+                    class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-xl shadow-lg hover:bg-indigo-700 transition-colors">
+                Cerca
+            </button>
+        </div>
+
+        <!-- Messaggi di stato -->
+        <div id="status-message" class="text-center text-sm text-gray-500 mb-4 hidden"></div>
+
+        <!-- Contenitore per i risultati -->
+        <div id="results-container" class="mb-8">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
+                <h2 class="text-2xl font-semibold text-indigo-600">Risultati della Ricerca (<span id="results-count">0</span>)</h2>
+                <!-- Controlli di ordinamento e filtro -->
+                <div class="flex flex-col sm:flex-row items-center gap-2 mt-2 sm:mt-0">
+                    <div class="flex items-center gap-2">
+                         <span class="text-sm text-gray-600">Ordina per:</span>
+                         <select id="sort-select" class="p-2 border border-gray-300 rounded-lg text-sm focus:outline-none">
+                            <option value="name">Nome</option>
+                            <option value="country">Paese</option>
+                         </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-600">Filtra per Paese:</span>
+                        <select id="country-filter-select" class="p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                            <option value="">Tutti i Paesi</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div id="results-list" class="bg-gray-50 rounded-xl p-4 scrollable-list">
+                <p class="text-gray-400 text-center">I risultati appariranno qui...</p>
+            </div>
+        </div>
+
+        <!-- Contenitore per le stazioni salvate -->
+        <div id="saved-stations-container">
+            <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
+                <h2 class="text-2xl font-semibold text-indigo-600">Stazioni Salvate</h2>
+                <div class="flex flex-col sm:flex-row items-center gap-2 mt-2 sm:mt-0">
+                    <span class="text-sm text-gray-600">Ordina per:</span>
+                    <select id="saved-sort-select" class="p-2 border border-gray-300 rounded-lg text-sm focus:outline-none">
+                        <option value="name">Nome</option>
+                        <option value="country">Paese</option>
+                    </select>
+                    <span class="text-sm text-gray-600">Filtra per Paese:</span>
+                    <select id="saved-country-filter-select" class="p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:border-indigo-500">
+                        <option value="">Tutti i Paesi</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+                <button id="export-button" class="bg-gray-400 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-gray-500 transition-colors text-sm">
+                    Esporta Lista
+                </button>
+                <button id="import-button" class="bg-gray-400 text-white font-semibold py-2 px-4 rounded-xl shadow-md hover:bg-gray-500 transition-colors text-sm">
+                    Importa Lista
+                </button>
+                <input type="file" id="file-input" class="hidden" accept=".json">
+            </div>
+            <div id="saved-stations-list" class="bg-gray-50 rounded-xl p-4 scrollable-list">
+                <p class="text-gray-400 text-center">Nessuna stazione salvata.</p>
+            </div>
+        </div>
+        
+    </div>
+
+    <script>
+        let searchResults = [];
+        let currentPlayingStationId = null;
+
+        // Funzione per mostrare e nascondere il messaggio di stato
+        function showStatus(message, isHidden = false) {
+            const statusElement = document.getElementById('status-message');
+            statusElement.textContent = message;
+            if (isHidden) {
+                statusElement.classList.add('hidden');
+            } else {
+                statusElement.classList.remove('hidden');
+            }
+        }
+
+        // Funzione per salvare le stazioni su localStorage
+        function saveStations(stations) {
+            localStorage.setItem('savedRadios', JSON.stringify(stations));
+        }
+
+        // Funzione per caricare le stazioni da localStorage
+        function loadStations() {
+            const savedStations = localStorage.getItem('savedRadios');
+            return savedStations ? JSON.parse(savedStations) : [];
+        }
+        
+        // Funzione per ordinare le stazioni
+        function sortStations(stations, sortBy) {
+            return stations.sort((a, b) => {
+                let aValue;
+                let bValue;
+                
+                if (sortBy === 'country') {
+                    aValue = `${a.country || ''}${a.name || ''}`.toLowerCase();
+                    bValue = `${b.country || ''}${b.name || ''}`.toLowerCase();
+                } else { // 'name'
+                    aValue = (a[sortBy] || '').toLowerCase();
+                    bValue = (b[sortBy] || '').toLowerCase();
+                }
+
+                if (aValue < bValue) return -1;
+                if (aValue > bValue) return 1;
+                return 0;
+            });
+        }
+
+        // Funzione per aggiornare il testo del pulsante di riproduzione
+        function updateAllPlayButtonTexts() {
+            document.querySelectorAll('.play-button').forEach(button => {
+                const stationId = button.closest('.station-item').getAttribute('data-station-uuid');
+                if (stationId === currentPlayingStationId && !document.getElementById('audio-player').paused) {
+                    button.textContent = 'Pausa';
+                } else {
+                    button.textContent = 'Riproduci';
+                }
+            });
+        }
+
+        // Funzione per renderizzare la lista dei risultati di ricerca
+        function renderSearchResults() {
+            const resultsList = document.getElementById('results-list');
+            const resultsCountElement = document.getElementById('results-count');
+            const countryFilterSelect = document.getElementById('country-filter-select');
+            
+            resultsList.innerHTML = ''; // Pulisce i risultati precedenti
+            
+            // Popola il menu a tendina con i paesi disponibili
+            const countries = [...new Set(searchResults.map(station => station.country))].sort();
+            const selectedCountry = countryFilterSelect.value;
+            countryFilterSelect.innerHTML = '<option value="">Tutti i Paesi</option>';
+            countries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                countryFilterSelect.appendChild(option);
+            });
+            countryFilterSelect.value = selectedCountry;
+
+            // Filtra i risultati in base al paese selezionato
+            const filteredResults = searchResults.filter(station => {
+                const country = station.country;
+                return !selectedCountry || country === selectedCountry;
+            });
+
+            if (filteredResults.length === 0) {
+                resultsList.innerHTML = '<p class="text-gray-400 text-center">Nessuna stazione trovata.</p>';
+                resultsCountElement.textContent = '0';
+                return;
+            }
+            
+            // Applica l'ordinamento prima di renderizzare
+            const sortBy = document.getElementById('sort-select').value;
+            const sortedStations = sortStations([...filteredResults], sortBy);
+
+            resultsCountElement.textContent = sortedStations.length;
+
+            sortedStations.forEach(station => {
+                const item = document.createElement('div');
+                item.className = 'station-item flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 my-2 bg-white rounded-lg shadow-sm hover:shadow-md';
+                item.setAttribute('data-station-uuid', station.stationuuid);
+                item.innerHTML = `
+                    <div class="flex items-center">
+                        <img src="${station.favicon}" onerror="this.src='https://placehold.co/40x40/f3f4f6/1f2937?text=...'" class="w-10 h-10 rounded-full mr-4 object-cover" alt="Icona radio">
+                        <img src="https://flagcdn.com/w20/${station.countrycode.toLowerCase()}.png" onerror="this.src='https://placehold.co/20x15/f3f4f6/1f2937?text=...'" class="w-5 h-4 mr-2" alt="Bandiera">
+                        <div>
+                            <h3 class="font-bold text-gray-800">${station.name}</h3>
+                            <p class="text-sm text-gray-500">${station.country}, ${station.tags}</p>
+                        </div>
+                    </div>
+                    <div class="mt-2 sm:mt-0 flex gap-2">
+                        <button class="play-button bg-yellow-400 text-gray-800 font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
+                            Riproduci
+                        </button>
+                        <a href="${station.homepage}" target="_blank" class="visit-website-button ${station.homepage ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'} text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
+                            Sito Web
+                        </a>
+                        <button class="save-button bg-green-500 text-white font-semibold py-1 px-3 rounded-lg text-sm hover:bg-green-600 transition-colors">
+                            Salva
+                        </button>
+                    </div>
+                `;
+                
+                // Aggiunge un listener al pulsante "Riproduci"
+                item.querySelector('.play-button').addEventListener('click', () => {
+                    const audioPlayer = document.getElementById('audio-player');
+                    
+                    if (currentPlayingStationId === station.stationuuid) {
+                        // Se è la stessa stazione, metti in pausa
+                        audioPlayer.pause();
+                        currentPlayingStationId = null;
+                    } else {
+                        // Se è una nuova stazione, avviala
+                        audioPlayer.src = station.url;
+                        audioPlayer.classList.remove('hidden');
+                        audioPlayer.play();
+                        currentPlayingStationId = station.stationuuid;
+
+                        // Aggiorna le informazioni nel lettore
+                        document.getElementById('player-info').classList.remove('hidden');
+                        document.getElementById('current-station-name').textContent = station.name;
+                        document.getElementById('current-song-title').textContent = 'Nome brano non disponibile';
+                        document.getElementById('player-codec').textContent = `Codec: ${station.codec || 'N/A'}`;
+                        document.getElementById('player-bitrate').textContent = `Bitrate: ${station.bitrate ? station.bitrate + ' kbps' : 'N/A'}`;
+                        document.getElementById('player-language').textContent = `Lingua: ${station.language || 'N/A'}`;
+                        document.getElementById('player-tags').textContent = `Tags: ${station.tags || 'N/A'}`;
+                        
+                        const homepageLink = document.getElementById('player-homepage-link');
+                        if (station.homepage) {
+                            homepageLink.href = station.homepage;
+                            homepageLink.classList.remove('hidden');
+                        } else {
+                            homepageLink.classList.add('hidden');
+                        }
+                    }
+                    updateAllPlayButtonTexts();
+                });
+                
+                // Aggiunge un listener al pulsante "Salva"
+                item.querySelector('.save-button').addEventListener('click', () => {
+                    let savedStations = loadStations();
+                    // Controlla se la stazione è già salvata
+                    if (!savedStations.some(s => s.stationuuid === station.stationuuid)) {
+                        savedStations.push(station);
+                        saveStations(savedStations);
+                        renderSavedStations();
+                        showStatus('Stazione salvata con successo!', false);
+                        setTimeout(() => showStatus('', true), 3000);
+                    } else {
+                        showStatus('Questa stazione è già salvata!', false);
+                        setTimeout(() => showStatus('', true), 3000);
+                    }
+                });
+
+                resultsList.appendChild(item);
+            });
+            updateAllPlayButtonTexts();
+        }
+
+        // Funzione per renderizzare la lista delle stazioni salvate
+        function renderSavedStations() {
+            const savedStationsList = document.getElementById('saved-stations-list');
+            const savedCountryFilterSelect = document.getElementById('saved-country-filter-select');
+            
+            savedStationsList.innerHTML = ''; // Pulisce i risultati precedenti
+            const stations = loadStations();
+            
+            // Popola il menu a tendina dei paesi salvati
+            const savedCountries = [...new Set(stations.map(station => station.country))].sort();
+            const selectedSavedCountry = savedCountryFilterSelect.value;
+            savedCountryFilterSelect.innerHTML = '<option value="">Tutti i Paesi</option>';
+            savedCountries.forEach(country => {
+                const option = document.createElement('option');
+                option.value = country;
+                option.textContent = country;
+                savedCountryFilterSelect.appendChild(option);
+            });
+            savedCountryFilterSelect.value = selectedSavedCountry;
+
+            // Filtra le stazioni salvate in base al paese selezionato
+            const filteredSavedStations = stations.filter(station => {
+                const country = station.country;
+                return !selectedSavedCountry || country === selectedSavedCountry;
+            });
+
+            if (filteredSavedStations.length === 0) {
+                savedStationsList.innerHTML = '<p class="text-gray-400 text-center">Nessuna stazione salvata.</p>';
+                return;
+            }
+
+            // Applica l'ordinamento prima di renderizzare
+            const sortBy = document.getElementById('saved-sort-select').value;
+            const sortedStations = sortStations([...filteredSavedStations], sortBy);
+
+            sortedStations.forEach(station => {
+                const item = document.createElement('div');
+                item.className = 'station-item flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 my-2 bg-white rounded-lg shadow-sm hover:shadow-md';
+                item.setAttribute('data-station-uuid', station.stationuuid);
+                item.innerHTML = `
+                    <div class="flex items-center">
+                        <img src="${station.favicon}" onerror="this.src='https://placehold.co/40x40/f3f4f6/1f2937?text=...'" class="w-10 h-10 rounded-full mr-4 object-cover" alt="Icona radio">
+                        <img src="https://flagcdn.com/w20/${station.countrycode.toLowerCase()}.png" onerror="this.src='https://placehold.co/20x15/f3f4f6/1f2937?text=...'" class="w-5 h-4 mr-2" alt="Bandiera">
+                        <div>
+                            <h3 class="font-bold text-gray-800">${station.name}</h3>
+                            <p class="text-sm text-gray-500">${station.country}, ${station.tags}</p>
+                        </div>
+                    </div>
+                    <div class="mt-2 sm:mt-0 flex gap-2">
+                        <button class="play-button bg-yellow-400 text-gray-800 font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
+                            Riproduci
+                        </button>
+                        <a href="${station.homepage}" target="_blank" class="visit-website-button ${station.homepage ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'} text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
+                            Sito Web
+                        </a>
+                        <button class="remove-button bg-red-500 text-white font-semibold py-1 px-3 rounded-lg text-sm hover:bg-red-600 transition-colors">
+                            Rimuovi
+                        </button>
+                    </div>
+                `;
+
+                // Aggiunge un listener al pulsante "Riproduci"
+                item.querySelector('.play-button').addEventListener('click', () => {
+                    const audioPlayer = document.getElementById('audio-player');
+                    
+                    if (currentPlayingStationId === station.stationuuid) {
+                        // Se è la stessa stazione, metti in pausa
+                        audioPlayer.pause();
+                        currentPlayingStationId = null;
+                    } else {
+                        // Se è una nuova stazione, avviala
+                        audioPlayer.src = station.url;
+                        audioPlayer.classList.remove('hidden');
+                        audioPlayer.play();
+                        currentPlayingStationId = station.stationuuid;
+
+                        // Aggiorna le informazioni nel lettore
+                        document.getElementById('player-info').classList.remove('hidden');
+                        document.getElementById('current-station-name').textContent = station.name;
+                        document.getElementById('current-song-title').textContent = 'Nome brano non disponibile';
+                        document.getElementById('player-codec').textContent = `Codec: ${station.codec || 'N/A'}`;
+                        document.getElementById('player-bitrate').textContent = `Bitrate: ${station.bitrate ? station.bitrate + ' kbps' : 'N/A'}`;
+                        document.getElementById('player-language').textContent = `Lingua: ${station.language || 'N/A'}`;
+                        document.getElementById('player-tags').textContent = `Tags: ${station.tags || 'N/A'}`;
+                        
+                        const homepageLink = document.getElementById('player-homepage-link');
+                        if (station.homepage) {
+                            homepageLink.href = station.homepage;
+                            homepageLink.classList.remove('hidden');
+                        } else {
+                            homepageLink.classList.add('hidden');
+                        }
+                    }
+                    updateAllPlayButtonTexts();
+                });
+
+                // Aggiunge un listener al pulsante "Rimuovi"
+                item.querySelector('.remove-button').addEventListener('click', () => {
+                    let savedStations = loadStations();
+                    const updatedStations = savedStations.filter(s => s.stationuuid !== station.stationuuid);
+                    saveStations(updatedStations);
+                    renderSavedStations();
+                    showStatus('Stazione rimossa con successo.', false);
+                    setTimeout(() => showStatus('', true), 3000);
+                });
+
+                savedStationsList.appendChild(item);
+            });
+            updateAllPlayButtonTexts();
+        }
+
+        // Funzione per la ricerca delle stazioni radio
+        async function searchRadios() {
+            const searchTerm = document.getElementById('search-input').value.trim();
+            const searchType = document.getElementById('search-type-select').value;
+            if (!searchTerm) {
+                showStatus('Per favor, inserisci un termine di ricerca.', false);
+                return;
+            }
+            
+            showStatus('Ricerca in corso...', false);
+            let url = '';
+
+            // Costruisce l'URL dell'API in base al tipo di ricerca
+            if (searchType === 'name') {
+                url = `https://de1.api.radio-browser.info/json/stations/byname/${encodeURIComponent(searchTerm)}`;
+            } else if (searchType === 'country') {
+                url = `https://de1.api.radio-browser.info/json/stations/bycountry/${encodeURIComponent(searchTerm)}`;
+            }
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.length > 0) {
+                    searchResults = data;
+                    renderSearchResults();
+                    showStatus('', true);
+                } else {
+                    searchResults = [];
+                    renderSearchResults();
+                    showStatus('Nessuna stazione trovata per questo termine.', false);
+                }
+            } catch (error) {
+                console.error('Errore durante la ricerca:', error);
+                showStatus('Si è verificato un errore durante la ricerca. Riprova più tardi.', false);
+            }
+        }
+        
+        // Funzione per esportare la lista delle stazioni salvate
+        function exportList() {
+            const stations = loadStations();
+            const dataStr = JSON.stringify(stations, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            // Crea un nome di file dinamico con la data
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // Mesi da 0-11
+            const day = String(today.getDate()).padStart(2, '0');
+            const fileName = `radio-browser_${year}-${month}-${day}.json`;
+
+            // Crea un link invisibile e attiva il download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName; // Questo attiva il prompt "Salva con nome"
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showStatus('Lista esportata con successo!', false);
+            setTimeout(() => showStatus('', true), 3000);
+        }
+        
+        // Funzione per importare la lista delle stazioni salvate
+        function importList(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const importedStations = JSON.parse(e.target.result);
+                    if (Array.isArray(importedStations)) {
+                        saveStations(importedStations);
+                        renderSavedStations();
+                        showStatus('Lista importata con successo!', false);
+                        setTimeout(() => showStatus('', true), 3000);
+                    } else {
+                        showStatus('Il file non è un formato valido.', false);
+                        setTimeout(() => showStatus('', true), 3000);
+                    }
+                } catch (error) {
+                    showStatus('Si è verificato un errore nella lettura del file.', false);
+                    setTimeout(() => showStatus('', true), 3000);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Aggiunge i listener agli eventi
+        document.getElementById('search-button').addEventListener('click', searchRadios);
+        document.getElementById('search-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchRadios();
+            }
+        });
+        document.getElementById('sort-select').addEventListener('change', renderSearchResults);
+        document.getElementById('country-filter-select').addEventListener('change', renderSearchResults);
+        document.getElementById('saved-sort-select').addEventListener('change', renderSavedStations);
+        document.getElementById('saved-country-filter-select').addEventListener('change', renderSavedStations);
+        document.getElementById('export-button').addEventListener('click', exportList);
+        document.getElementById('import-button').addEventListener('click', () => {
+            document.getElementById('file-input').click();
+        });
+        document.getElementById('file-input').addEventListener('change', importList);
+
+        // Inizializza la lista delle stazioni salvate all'avvio
+        document.addEventListener('DOMContentLoaded', () => {
+            renderSavedStations();
+        });
+
+        // Nasconde le informazioni di riproduzione quando la radio viene messa in pausa
+        document.getElementById('audio-player').addEventListener('pause', () => {
+            currentPlayingStationId = null;
+            document.getElementById('player-info').classList.add('hidden');
+            document.getElementById('current-station-name').textContent = '';
+            document.getElementById('current-song-title').textContent = '';
+            updateAllPlayButtonTexts();
+        });
+
+    </script>
+</body>
+</html>
