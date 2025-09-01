@@ -44,10 +44,8 @@
         <h1 class="text-3xl sm:text-4xl font-bold text-center text-indigo-700 mb-2">Ricerca Radio Online</h1>
         <p class="text-center text-gray-500 mb-8">Cerca e salva le tue stazioni radio preferite.</p>
 
-        <!-- Lettore audio -->
         <audio id="audio-player" class="w-full my-4 rounded-xl hidden" controls autoplay></audio>
         
-        <!-- Informazioni sulla riproduzione -->
         <div id="player-info" class="bg-indigo-100 text-indigo-800 p-4 rounded-xl mb-6 shadow-inner hidden">
             <h3 class="font-bold text-lg" id="current-station-name"></h3>
             <div class="flex flex-wrap gap-2 text-xs mt-2 text-indigo-700">
@@ -59,11 +57,11 @@
             </div>
         </div>
 
-        <!-- Area di ricerca -->
         <div class="flex flex-col sm:flex-row gap-4 mb-6">
             <select id="search-type-select" class="p-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-indigo-500 transition-all shadow-sm">
                 <option value="name">Nome</option>
                 <option value="country">Paese</option>
+                <option value="tag">Tag</option>
             </select>
             <input type="text" id="search-input" placeholder="Inserisci il termine di ricerca..."
                    class="flex-1 p-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-indigo-500 transition-all shadow-sm">
@@ -73,14 +71,11 @@
             </button>
         </div>
 
-        <!-- Messaggi di stato -->
         <div id="status-message" class="text-center text-sm text-gray-500 mb-4 hidden"></div>
 
-        <!-- Contenitore per i risultati -->
         <div id="results-container" class="mb-8">
             <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
                 <h2 class="text-2xl font-semibold text-indigo-600">Risultati della Ricerca (<span id="results-count">0</span>)</h2>
-                <!-- Controlli di ordinamento e filtro -->
                 <div class="flex flex-col sm:flex-row items-center gap-2 mt-2 sm:mt-0">
                     <div class="flex items-center gap-2">
                          <span class="text-sm text-gray-600">Ordina per:</span>
@@ -102,7 +97,6 @@
             </div>
         </div>
 
-        <!-- Contenitore per le stazioni salvate -->
         <div id="saved-stations-container">
             <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
                 <h2 class="text-2xl font-semibold text-indigo-600">Stazioni Salvate</h2>
@@ -129,6 +123,36 @@
             </div>
             <div id="saved-stations-list" class="bg-gray-50 rounded-xl p-4 scrollable-list">
                 <p class="text-gray-400 text-center">Nessuna stazione salvata.</p>
+            </div>
+        </div>
+
+        <!-- Modale di modifica (nascosta di default) -->
+        <div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+                <h3 class="text-2xl font-bold mb-4">Modifica Stazione</h3>
+                <form id="edit-form">
+                    <div class="mb-4">
+                        <label for="edit-name" class="block text-gray-700 font-semibold mb-2">Nome</label>
+                        <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="mb-4">
+                        <label for="edit-url" class="block text-gray-700 font-semibold mb-2">URL di Streaming</label>
+                        <input type="url" id="edit-url" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <!-- Nuovo campo per l'icona -->
+                    <div class="mb-4">
+                        <label for="edit-favicon" class="block text-gray-700 font-semibold mb-2">URL Icona</label>
+                        <input type="url" id="edit-favicon" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-4 mt-6">
+                        <button type="button" id="cancel-edit-button" class="bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors">
+                            Annulla
+                        </button>
+                        <button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
+                            Salva Modifiche
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
         
@@ -175,7 +199,7 @@
                 }
 
                 if (aValue < bValue) return -1;
-                if (aValue > b) return 1;
+                if (aValue > bValue) return 1;
                 return 0;
             });
         }
@@ -184,7 +208,8 @@
         function updateAllPlayButtonTexts() {
             document.querySelectorAll('.play-button').forEach(button => {
                 const stationId = button.closest('.station-item').getAttribute('data-station-uuid');
-                if (stationId === currentPlayingStationId && !document.getElementById('audio-player').paused) {
+                const audioPlayer = document.getElementById('audio-player');
+                if (stationId === currentPlayingStationId && !audioPlayer.paused) {
                     button.textContent = 'Pausa';
                 } else {
                     button.textContent = 'Riproduci';
@@ -237,7 +262,7 @@
                 item.innerHTML = `
                     <div class="flex items-center">
                         <img src="${station.favicon}" onerror="this.src='https://placehold.co/40x40/f3f4f6/1f2937?text=...'" class="w-10 h-10 rounded-full mr-4 object-cover" alt="Icona radio">
-                        <img src="https://flagcdn.com/w20/${station.countrycode.toLowerCase()}.png" onerror="this.src='https://placehold.co/20x15/f3f4f6/1f2937?text=...'" class="w-5 h-4 mr-2" alt="Bandiera">
+                        <img src="https://flagcdn.com/w20/${(station.countrycode || '').toLowerCase()}.png" onerror="this.src='https://placehold.co/20x15/f3f4f6/1f2937?text=...'" class="w-5 h-4 mr-2" alt="Bandiera">
                         <div>
                             <h3 class="font-bold text-gray-800">${station.name}</h3>
                             <p class="text-sm text-gray-500">${station.country}, ${station.tags}</p>
@@ -261,9 +286,12 @@
                     const audioPlayer = document.getElementById('audio-player');
                     
                     if (currentPlayingStationId === station.stationuuid) {
-                        // Se è la stessa stazione, metti in pausa
-                        audioPlayer.pause();
-                        currentPlayingStationId = null;
+                        // Se è la stessa stazione, metti in pausa o riprendi
+                        if (audioPlayer.paused) {
+                            audioPlayer.play();
+                        } else {
+                            audioPlayer.pause();
+                        }
                     } else {
                         // Se è una nuova stazione, avviala
                         audioPlayer.src = station.url;
@@ -354,7 +382,7 @@
                 item.innerHTML = `
                     <div class="flex items-center">
                         <img src="${station.favicon}" onerror="this.src='https://placehold.co/40x40/f3f4f6/1f2937?text=...'" class="w-10 h-10 rounded-full mr-4 object-cover" alt="Icona radio">
-                        <img src="https://flagcdn.com/w20/${station.countrycode.toLowerCase()}.png" onerror="this.src='https://placehold.co/20x15/f3f4f6/1f2937?text=...'" class="w-5 h-4 mr-2" alt="Bandiera">
+                        <img src="https://flagcdn.com/w20/${(station.countrycode || '').toLowerCase()}.png" onerror="this.src='https://placehold.co/20x15/f3f4f6/1f2937?text=...'" class="w-5 h-4 mr-2" alt="Bandiera">
                         <div>
                             <h3 class="font-bold text-gray-800">${station.name}</h3>
                             <p class="text-sm text-gray-500">${station.country}, ${station.tags}</p>
@@ -367,6 +395,9 @@
                         <a href="${station.homepage}" target="_blank" class="visit-website-button ${station.homepage ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'} text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
                             Sito Web
                         </a>
+                        <button class="edit-button bg-blue-500 text-white font-semibold py-1 px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors">
+                            Modifica
+                        </button>
                         <button class="remove-button bg-red-500 text-white font-semibold py-1 px-3 rounded-lg text-sm hover:bg-red-600 transition-colors">
                             Rimuovi
                         </button>
@@ -378,9 +409,12 @@
                     const audioPlayer = document.getElementById('audio-player');
                     
                     if (currentPlayingStationId === station.stationuuid) {
-                        // Se è la stessa stazione, metti in pausa
-                        audioPlayer.pause();
-                        currentPlayingStationId = null;
+                        // Se è la stessa stazione, metti in pausa o riprendi
+                        if (audioPlayer.paused) {
+                            audioPlayer.play();
+                        } else {
+                            audioPlayer.pause();
+                        }
                     } else {
                         // Se è una nuova stazione, avviala
                         audioPlayer.src = station.url;
@@ -408,6 +442,11 @@
                     updateAllPlayButtonTexts();
                 });
 
+                // Aggiunge un listener al pulsante "Modifica"
+                item.querySelector('.edit-button').addEventListener('click', () => {
+                    openEditModal(station);
+                });
+
                 // Aggiunge un listener al pulsante "Rimuovi"
                 item.querySelector('.remove-button').addEventListener('click', () => {
                     let savedStations = loadStations();
@@ -423,12 +462,63 @@
             updateAllPlayButtonTexts();
         }
 
+        // Funzione per aprire il modale di modifica
+        function openEditModal(station) {
+            const modal = document.getElementById('edit-modal');
+            const editForm = document.getElementById('edit-form');
+            const editNameInput = document.getElementById('edit-name');
+            const editUrlInput = document.getElementById('edit-url');
+            const editFaviconInput = document.getElementById('edit-favicon');
+
+            // Pre-popola il form con i dati attuali della stazione
+            editNameInput.value = station.name || '';
+            editUrlInput.value = station.url || '';
+            editFaviconInput.value = station.favicon || '';
+
+            // Rendi visibile il modale
+            modal.classList.remove('hidden');
+
+            // Imposta l'evento di submit del form
+            editForm.onsubmit = (event) => {
+                event.preventDefault();
+                
+                const newName = editNameInput.value.trim();
+                const newUrl = editUrlInput.value.trim();
+                const newFavicon = editFaviconInput.value.trim();
+
+                if (!newName || !newUrl) {
+                    showStatus('Nome e URL sono obbligatori.', false);
+                    setTimeout(() => showStatus('', true), 3000);
+                    return;
+                }
+
+                let savedStations = loadStations();
+                const updatedStations = savedStations.map(s => {
+                    if (s.stationuuid === station.stationuuid) {
+                        return { ...s, name: newName, url: newUrl, favicon: newFavicon };
+                    }
+                    return s;
+                });
+                
+                saveStations(updatedStations);
+                closeEditModal();
+                renderSavedStations();
+                showStatus('Stazione modificata con successo!', false);
+                setTimeout(() => showStatus('', true), 3000);
+            };
+        }
+
+        // Funzione per chiudere il modale di modifica
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+
         // Funzione per la ricerca delle stazioni radio
         async function searchRadios() {
             const searchTerm = document.getElementById('search-input').value.trim();
             const searchType = document.getElementById('search-type-select').value;
             if (!searchTerm) {
-                showStatus('Per favor, inserisci un termine di ricerca.', false);
+                showStatus('Per favore, inserisci un termine di ricerca.', false);
                 return;
             }
             
@@ -440,6 +530,8 @@
                 url = `https://de1.api.radio-browser.info/json/stations/byname/${encodeURIComponent(searchTerm)}`;
             } else if (searchType === 'country') {
                 url = `https://de1.api.radio-browser.info/json/stations/bycountry/${encodeURIComponent(searchTerm)}`;
+            } else if (searchType === 'tag') {
+                url = `https://de1.api.radio-browser.info/json/stations/bytag/${encodeURIComponent(searchTerm)}`;
             }
             
             try {
@@ -532,6 +624,9 @@
         });
         document.getElementById('file-input').addEventListener('change', importList);
 
+        // Listener per il pulsante Annulla del modale
+        document.getElementById('cancel-edit-button').addEventListener('click', closeEditModal);
+
         // Inizializza la lista delle stazioni salvate all'avvio
         document.addEventListener('DOMContentLoaded', () => {
             renderSavedStations();
@@ -545,6 +640,10 @@
             updateAllPlayButtonTexts();
         });
 
+        // Aggiorna il testo dei pulsanti quando la radio riprende la riproduzione
+        document.getElementById('audio-player').addEventListener('play', () => {
+            updateAllPlayButtonTexts();
+        });
     </script>
 </body>
 </html>
