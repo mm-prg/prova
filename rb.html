@@ -30,11 +30,11 @@
             transform: translateY(-2px);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .play-button {
-            transition: background-color 0.2s;
+        .play-button, .save-button, .remove-button, .visit-website-button {
+            transition: background-color 0.2s, transform 0.1s;
         }
-        .play-button:hover {
-            background-color: #fcd34d;
+        .play-button:hover, .save-button:hover, .remove-button:hover, .visit-website-button:hover {
+            transform: scale(1.05);
         }
     </style>
 </head>
@@ -43,9 +43,9 @@
     <div class="container bg-white p-6 sm:p-10 rounded-3xl shadow-2xl w-full">
         <h1 class="text-3xl sm:text-4xl font-bold text-center text-indigo-700 mb-2">Ricerca Radio Online</h1>
         <p class="text-center text-gray-500 mb-8">Cerca e salva le tue stazioni radio preferite.</p>
-
-        <audio id="audio-player" class="w-full my-4 rounded-xl hidden" controls autoplay></audio>
         
+        <audio id="audio-player" class="w-full my-4 rounded-xl hidden" controls autoplay></audio>
+
         <div id="player-info" class="bg-indigo-100 text-indigo-800 p-4 rounded-xl mb-6 shadow-inner hidden">
             <h3 class="font-bold text-lg" id="current-station-name"></h3>
             <div class="flex flex-wrap gap-2 text-xs mt-2 text-indigo-700">
@@ -99,7 +99,7 @@
 
         <div id="saved-stations-container">
             <div class="flex flex-col sm:flex-row items-center justify-between mb-4">
-                <h2 class="text-2xl font-semibold text-indigo-600">Stazioni Salvate</h2>
+                <h2 class="text-2xl font-semibold text-indigo-600">Stazioni Salvate (<span id="saved-count">0</span>)</h2>
                 <div class="flex flex-col sm:flex-row items-center gap-2 mt-2 sm:mt-0">
                     <span class="text-sm text-gray-600">Ordina per:</span>
                     <select id="saved-sort-select" class="p-2 border border-gray-300 rounded-lg text-sm focus:outline-none">
@@ -125,41 +125,11 @@
                 <p class="text-gray-400 text-center">Nessuna stazione salvata.</p>
             </div>
         </div>
-
-        <!-- Modale di modifica (nascosta di default) -->
-        <div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 hidden">
-            <div class="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-                <h3 class="text-2xl font-bold mb-4">Modifica Stazione</h3>
-                <form id="edit-form">
-                    <div class="mb-4">
-                        <label for="edit-name" class="block text-gray-700 font-semibold mb-2">Nome</label>
-                        <input type="text" id="edit-name" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div class="mb-4">
-                        <label for="edit-url" class="block text-gray-700 font-semibold mb-2">URL di Streaming</label>
-                        <input type="url" id="edit-url" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <!-- Nuovo campo per l'icona -->
-                    <div class="mb-4">
-                        <label for="edit-favicon" class="block text-gray-700 font-semibold mb-2">URL Icona</label>
-                        <input type="url" id="edit-favicon" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <div class="flex justify-end gap-4 mt-6">
-                        <button type="button" id="cancel-edit-button" class="bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors">
-                            Annulla
-                        </button>
-                        <button type="submit" class="bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
-                            Salva Modifiche
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        
     </div>
 
     <script>
         let searchResults = [];
+        let savedStations = [];
         let currentPlayingStationId = null;
 
         // Funzione per mostrare e nascondere il messaggio di stato
@@ -173,29 +143,18 @@
             }
         }
 
-        // Funzione per salvare le stazioni su localStorage
-        function saveStations(stations) {
-            localStorage.setItem('savedRadios', JSON.stringify(stations));
-        }
-
-        // Funzione per caricare le stazioni da localStorage
-        function loadStations() {
-            const savedStations = localStorage.getItem('savedRadios');
-            return savedStations ? JSON.parse(savedStations) : [];
-        }
-        
         // Funzione per ordinare le stazioni
         function sortStations(stations, sortBy) {
             return stations.sort((a, b) => {
                 let aValue;
                 let bValue;
-                
+
                 if (sortBy === 'country') {
                     aValue = `${a.country || ''}${a.name || ''}`.toLowerCase();
                     bValue = `${b.country || ''}${b.name || ''}`.toLowerCase();
                 } else { // 'name'
-                    aValue = (a[sortBy] || '').toLowerCase();
-                    bValue = (b[sortBy] || '').toLowerCase();
+                    aValue = (a.name || '').toLowerCase();
+                    bValue = (b.name || '').toLowerCase();
                 }
 
                 if (aValue < bValue) return -1;
@@ -209,22 +168,27 @@
             document.querySelectorAll('.play-button').forEach(button => {
                 const stationId = button.closest('.station-item').getAttribute('data-station-uuid');
                 const audioPlayer = document.getElementById('audio-player');
+                
+                // Icone SVG per i pulsanti Riproduci/Pausa
+                const playIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><title>Riproduci</title><path d="M5.592 2.921a.75.75 0 01.996-.103l14.858 9.062a.75.75 0 010 1.27l-14.858 9.062a.75.75 0 01-.996-.103c-.636-.637-1.35-2.071-1.35-3.109V6.03c0-1.038.714-2.472 1.35-3.109z" /></svg>';
+                const pauseIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6"><title>Pausa</title><path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm7.5-6a.75.75 0 01.75-.75.75.75 0 00-.75.75zM11.25 18a.75.75 0 01-.75.75.75.75 0 00.75-.75zM12 2.25a.75.75 0 01.75-.75.75.75 0 00-.75.75zM18 11.25a.75.75 0 01.75-.75.75.75 0 00-.75.75zM12 21.75a.75.75 0 01-.75.75.75.75 0 00.75-.75zM4.5 12a.75.75 0 01.75-.75.75.75 0 00-.75.75zM12 4.5a.75.75 0 01.75-.75.75.75 0 00-.75.75zM19.5 12a.75.75 0 01.75-.75.75.75 0 00-.75.75zM12 19.5a.75.75 0 01.75-.75.75.75 0 00-.75.75z" clip-rule="evenodd" /></svg>';
+
                 if (stationId === currentPlayingStationId && !audioPlayer.paused) {
-                    button.textContent = 'Pausa';
+                    button.innerHTML = pauseIcon;
                 } else {
-                    button.textContent = 'Riproduci';
+                    button.innerHTML = playIcon;
                 }
             });
         }
-        
+
         // Funzione per renderizzare la lista dei risultati di ricerca
         function renderSearchResults() {
             const resultsList = document.getElementById('results-list');
             const resultsCountElement = document.getElementById('results-count');
             const countryFilterSelect = document.getElementById('country-filter-select');
-            
+
             resultsList.innerHTML = ''; // Pulisce i risultati precedenti
-            
+
             // Popola il menu a tendina con i paesi disponibili
             const countries = [...new Set(searchResults.map(station => station.country))].sort();
             const selectedCountry = countryFilterSelect.value;
@@ -248,7 +212,7 @@
                 resultsCountElement.textContent = '0';
                 return;
             }
-            
+
             // Applica l'ordinamento prima di renderizzare
             const sortBy = document.getElementById('sort-select').value;
             const sortedStations = sortStations([...filteredResults], sortBy);
@@ -269,22 +233,32 @@
                         </div>
                     </div>
                     <div class="mt-2 sm:mt-0 flex gap-2">
-                        <button class="play-button bg-yellow-400 text-gray-800 font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
-                            Riproduci
+                        <button class="play-button bg-yellow-400 text-gray-800 font-semibold py-2 px-3 rounded-lg text-sm flex items-center justify-center" title="Riproduci stazione">
+                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                                <title>Riproduci</title>
+                                <path d="M5.592 2.921a.75.75 0 01.996-.103l14.858 9.062a.75.75 0 010 1.27l-14.858 9.062a.75.75 0 01-.996-.103c-.636-.637-1.35-2.071-1.35-3.109V6.03c0-1.038.714-2.472 1.35-3.109z" />
+                            </svg>
                         </button>
-                        <a href="${station.homepage}" target="_blank" class="visit-website-button ${station.homepage ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'} text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
-                            Sito Web
+                        <a href="${station.homepage}" target="_blank" class="visit-website-button ${station.homepage ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'} text-white font-semibold py-2 px-3 rounded-lg text-sm flex items-center justify-center" title="Visita il sito web">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <title>Sito Web</title>
+                                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                            </svg>
                         </a>
-                        <button class="save-button bg-green-500 text-white font-semibold py-1 px-3 rounded-lg text-sm hover:bg-green-600 transition-colors">
-                            Salva
+                        <button class="save-button bg-green-500 text-white font-semibold py-2 px-3 rounded-lg text-sm hover:bg-green-600 transition-colors flex items-center justify-center" title="Salva stazione">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <title>Salva</title>
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
                         </button>
                     </div>
                 `;
-                
+
                 // Aggiunge un listener al pulsante "Riproduci"
                 item.querySelector('.play-button').addEventListener('click', () => {
                     const audioPlayer = document.getElementById('audio-player');
-                    
+
                     if (currentPlayingStationId === station.stationuuid) {
                         // Se è la stessa stazione, metti in pausa o riprendi
                         if (audioPlayer.paused) {
@@ -302,12 +276,12 @@
                         // Aggiorna le informazioni nel lettore
                         document.getElementById('player-info').classList.remove('hidden');
                         document.getElementById('current-station-name').textContent = station.name;
-                        
+
                         document.getElementById('player-codec').textContent = `Codec: ${station.codec || 'N/A'}`;
                         document.getElementById('player-bitrate').textContent = `Bitrate: ${station.bitrate ? station.bitrate + ' kbps' : 'N/A'}`;
                         document.getElementById('player-language').textContent = `Lingua: ${station.language || 'N/A'}`;
                         document.getElementById('player-tags').textContent = `Tags: ${station.tags || 'N/A'}`;
-                        
+
                         const homepageLink = document.getElementById('player-homepage-link');
                         if (station.homepage) {
                             homepageLink.href = station.homepage;
@@ -318,21 +292,21 @@
                     }
                     updateAllPlayButtonTexts();
                 });
-                
+
                 // Aggiunge un listener al pulsante "Salva"
                 item.querySelector('.save-button').addEventListener('click', () => {
-                    let savedStations = loadStations();
                     // Controlla se la stazione è già salvata
-                    if (!savedStations.some(s => s.stationuuid === station.stationuuid)) {
-                        savedStations.push(station);
-                        saveStations(savedStations);
-                        renderSavedStations();
-                        showStatus('Stazione salvata con successo!', false);
-                        setTimeout(() => showStatus('', true), 3000);
-                    } else {
+                    const isAlreadySaved = savedStations.some(s => s.stationuuid === station.stationuuid);
+                    if (isAlreadySaved) {
                         showStatus('Questa stazione è già salvata!', false);
                         setTimeout(() => showStatus('', true), 3000);
+                        return;
                     }
+                    savedStations.push(station);
+                    localStorage.setItem('savedStations', JSON.stringify(savedStations));
+                    renderSavedStations();
+                    showStatus('Stazione salvata con successo!', false);
+                    setTimeout(() => showStatus('', true), 3000);
                 });
 
                 resultsList.appendChild(item);
@@ -344,12 +318,12 @@
         function renderSavedStations() {
             const savedStationsList = document.getElementById('saved-stations-list');
             const savedCountryFilterSelect = document.getElementById('saved-country-filter-select');
-            
+            const savedCountElement = document.getElementById('saved-count');
+
             savedStationsList.innerHTML = ''; // Pulisce i risultati precedenti
-            const stations = loadStations();
             
             // Popola il menu a tendina dei paesi salvati
-            const savedCountries = [...new Set(stations.map(station => station.country))].sort();
+            const savedCountries = [...new Set(savedStations.map(station => station.country))].sort();
             const selectedSavedCountry = savedCountryFilterSelect.value;
             savedCountryFilterSelect.innerHTML = '<option value="">Tutti i Paesi</option>';
             savedCountries.forEach(country => {
@@ -361,10 +335,12 @@
             savedCountryFilterSelect.value = selectedSavedCountry;
 
             // Filtra le stazioni salvate in base al paese selezionato
-            const filteredSavedStations = stations.filter(station => {
+            const filteredSavedStations = savedStations.filter(station => {
                 const country = station.country;
                 return !selectedSavedCountry || country === selectedSavedCountry;
             });
+            
+            savedCountElement.textContent = filteredSavedStations.length;
 
             if (filteredSavedStations.length === 0) {
                 savedStationsList.innerHTML = '<p class="text-gray-400 text-center">Nessuna stazione salvata.</p>';
@@ -389,17 +365,24 @@
                         </div>
                     </div>
                     <div class="mt-2 sm:mt-0 flex gap-2">
-                        <button class="play-button bg-yellow-400 text-gray-800 font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
-                            Riproduci
+                        <button class="play-button bg-yellow-400 text-gray-800 font-semibold py-2 px-3 rounded-lg text-sm flex items-center justify-center" title="Riproduci stazione">
+                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6">
+                                <title>Riproduci</title>
+                                <path d="M5.592 2.921a.75.75 0 01.996-.103l14.858 9.062a.75.75 0 010 1.27l-14.858 9.062a.75.75 0 01-.996-.103c-.636-.637-1.35-2.071-1.35-3.109V6.03c0-1.038.714-2.472 1.35-3.109z" />
+                            </svg>
                         </button>
-                        <a href="${station.homepage}" target="_blank" class="visit-website-button ${station.homepage ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'} text-white font-semibold py-1 px-3 rounded-lg text-sm transition-colors">
-                            Sito Web
+                        <a href="${station.homepage}" target="_blank" class="visit-website-button ${station.homepage ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-400 cursor-not-allowed'} text-white font-semibold py-2 px-3 rounded-lg text-sm flex items-center justify-center" title="Visita il sito web">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <title>Sito Web</title>
+                                <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                                <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
+                            </svg>
                         </a>
-                        <button class="edit-button bg-blue-500 text-white font-semibold py-1 px-3 rounded-lg text-sm hover:bg-blue-600 transition-colors">
-                            Modifica
-                        </button>
-                        <button class="remove-button bg-red-500 text-white font-semibold py-1 px-3 rounded-lg text-sm hover:bg-red-600 transition-colors">
-                            Rimuovi
+                        <button class="remove-button bg-red-500 text-white font-semibold py-2 px-3 rounded-lg text-sm hover:bg-red-600 transition-colors flex items-center justify-center" title="Rimuovi stazione">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <title>Rimuovi</title>
+                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
                         </button>
                     </div>
                 `;
@@ -407,7 +390,7 @@
                 // Aggiunge un listener al pulsante "Riproduci"
                 item.querySelector('.play-button').addEventListener('click', () => {
                     const audioPlayer = document.getElementById('audio-player');
-                    
+
                     if (currentPlayingStationId === station.stationuuid) {
                         // Se è la stessa stazione, metti in pausa o riprendi
                         if (audioPlayer.paused) {
@@ -425,12 +408,12 @@
                         // Aggiorna le informazioni nel lettore
                         document.getElementById('player-info').classList.remove('hidden');
                         document.getElementById('current-station-name').textContent = station.name;
-                        
+
                         document.getElementById('player-codec').textContent = `Codec: ${station.codec || 'N/A'}`;
                         document.getElementById('player-bitrate').textContent = `Bitrate: ${station.bitrate ? station.bitrate + ' kbps' : 'N/A'}`;
                         document.getElementById('player-language').textContent = `Lingua: ${station.language || 'N/A'}`;
                         document.getElementById('player-tags').textContent = `Tags: ${station.tags || 'N/A'}`;
-                        
+
                         const homepageLink = document.getElementById('player-homepage-link');
                         if (station.homepage) {
                             homepageLink.href = station.homepage;
@@ -442,75 +425,14 @@
                     updateAllPlayButtonTexts();
                 });
 
-                // Aggiunge un listener al pulsante "Modifica"
-                item.querySelector('.edit-button').addEventListener('click', () => {
-                    openEditModal(station);
-                });
-
                 // Aggiunge un listener al pulsante "Rimuovi"
                 item.querySelector('.remove-button').addEventListener('click', () => {
-                    let savedStations = loadStations();
-                    const updatedStations = savedStations.filter(s => s.stationuuid !== station.stationuuid);
-                    saveStations(updatedStations);
-                    renderSavedStations();
-                    showStatus('Stazione rimossa con successo.', false);
-                    setTimeout(() => showStatus('', true), 3000);
+                    removeStation(station.stationuuid);
                 });
 
                 savedStationsList.appendChild(item);
             });
             updateAllPlayButtonTexts();
-        }
-
-        // Funzione per aprire il modale di modifica
-        function openEditModal(station) {
-            const modal = document.getElementById('edit-modal');
-            const editForm = document.getElementById('edit-form');
-            const editNameInput = document.getElementById('edit-name');
-            const editUrlInput = document.getElementById('edit-url');
-            const editFaviconInput = document.getElementById('edit-favicon');
-
-            // Pre-popola il form con i dati attuali della stazione
-            editNameInput.value = station.name || '';
-            editUrlInput.value = station.url || '';
-            editFaviconInput.value = station.favicon || '';
-
-            // Rendi visibile il modale
-            modal.classList.remove('hidden');
-
-            // Imposta l'evento di submit del form
-            editForm.onsubmit = (event) => {
-                event.preventDefault();
-                
-                const newName = editNameInput.value.trim();
-                const newUrl = editUrlInput.value.trim();
-                const newFavicon = editFaviconInput.value.trim();
-
-                if (!newName || !newUrl) {
-                    showStatus('Nome e URL sono obbligatori.', false);
-                    setTimeout(() => showStatus('', true), 3000);
-                    return;
-                }
-
-                let savedStations = loadStations();
-                const updatedStations = savedStations.map(s => {
-                    if (s.stationuuid === station.stationuuid) {
-                        return { ...s, name: newName, url: newUrl, favicon: newFavicon };
-                    }
-                    return s;
-                });
-                
-                saveStations(updatedStations);
-                closeEditModal();
-                renderSavedStations();
-                showStatus('Stazione modificata con successo!', false);
-                setTimeout(() => showStatus('', true), 3000);
-            };
-        }
-
-        // Funzione per chiudere il modale di modifica
-        function closeEditModal() {
-            document.getElementById('edit-modal').classList.add('hidden');
         }
 
         // Funzione per la ricerca delle stazioni radio
@@ -521,7 +443,7 @@
                 showStatus('Per favore, inserisci un termine di ricerca.', false);
                 return;
             }
-            
+
             showStatus('Ricerca in corso...', false);
             let url = '';
 
@@ -533,7 +455,7 @@
             } else if (searchType === 'tag') {
                 url = `https://de1.api.radio-browser.info/json/stations/bytag/${encodeURIComponent(searchTerm)}`;
             }
-            
+
             try {
                 const response = await fetch(url);
                 const data = await response.json();
@@ -552,14 +474,31 @@
                 showStatus('Si è verificato un errore durante la ricerca. Riprova più tardi.', false);
             }
         }
+
+        // Funzione per caricare le stazioni salvate da localStorage
+        function loadSavedStations() {
+            const saved = localStorage.getItem('savedStations');
+            if (saved) {
+                savedStations = JSON.parse(saved);
+            }
+            renderSavedStations();
+        }
+
+        // Funzione per rimuovere una stazione da localStorage
+        function removeStation(stationUuid) {
+            savedStations = savedStations.filter(s => s.stationuuid !== stationUuid);
+            localStorage.setItem('savedStations', JSON.stringify(savedStations));
+            renderSavedStations();
+            showStatus('Stazione rimossa con successo.', false);
+            setTimeout(() => showStatus('', true), 3000);
+        }
         
         // Funzione per esportare la lista delle stazioni salvate
         function exportList() {
-            const stations = loadStations();
-            const dataStr = JSON.stringify(stations, null, 2);
+            const dataStr = JSON.stringify(savedStations, null, 2);
             const blob = new Blob([dataStr], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            
+
             // Crea un nome di file dinamico con la data
             const today = new Date();
             const year = today.getFullYear();
@@ -578,7 +517,7 @@
             showStatus('Lista esportata con successo!', false);
             setTimeout(() => showStatus('', true), 3000);
         }
-        
+
         // Funzione per importare la lista delle stazioni salvate
         function importList(event) {
             const file = event.target.files[0];
@@ -591,7 +530,13 @@
                 try {
                     const importedStations = JSON.parse(e.target.result);
                     if (Array.isArray(importedStations)) {
-                        saveStations(importedStations);
+                        importedStations.forEach(station => {
+                            const isAlreadySaved = savedStations.some(s => s.stationuuid === station.stationuuid);
+                            if (!isAlreadySaved) {
+                                savedStations.push(station);
+                            }
+                        });
+                        localStorage.setItem('savedStations', JSON.stringify(savedStations));
                         renderSavedStations();
                         showStatus('Lista importata con successo!', false);
                         setTimeout(() => showStatus('', true), 3000);
@@ -600,6 +545,7 @@
                         setTimeout(() => showStatus('', true), 3000);
                     }
                 } catch (error) {
+                    console.error("Error importing file:", error);
                     showStatus('Si è verificato un errore nella lettura del file.', false);
                     setTimeout(() => showStatus('', true), 3000);
                 }
@@ -624,12 +570,9 @@
         });
         document.getElementById('file-input').addEventListener('change', importList);
 
-        // Listener per il pulsante Annulla del modale
-        document.getElementById('cancel-edit-button').addEventListener('click', closeEditModal);
-
         // Inizializza la lista delle stazioni salvate all'avvio
         document.addEventListener('DOMContentLoaded', () => {
-            renderSavedStations();
+            loadSavedStations();
         });
 
         // Nasconde le informazioni di riproduzione quando la radio viene messa in pausa
